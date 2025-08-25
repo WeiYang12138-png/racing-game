@@ -2,71 +2,133 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8">
-  <title>小球点击小游戏</title>
+  <title>超级玛丽小游戏</title>
   <style>
     body {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
       margin: 0;
       background: #87CEEB;
       font-family: Arial, sans-serif;
     }
     #game {
       position: relative;
-      width: 400px;
+      width: 600px;
       height: 400px;
-      background: #90EE90;
+      margin: 20px auto;
+      background: #87CEEB;
       border: 3px solid #333;
-      border-radius: 10px;
       overflow: hidden;
     }
-    #ball {
+    .platform {
+      position: absolute;
+      height: 20px;
+      background: #654321;
+    }
+    #player {
       position: absolute;
       width: 40px;
       height: 40px;
-      background: radial-gradient(circle at 10px 10px, #fff, #ccc);
+      background: red;
+    }
+    .coin {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      background: gold;
       border-radius: 50%;
-      cursor: pointer;
-      top: 180px;
-      left: 180px;
-      transition: top 0.5s ease, left 0.5s ease;
     }
     #score {
-      position: absolute;
-      top: 10px;
-      left: 10px;
+      margin: 10px auto;
+      width: 600px;
       font-size: 20px;
-      color: #000;
     }
   </style>
 </head>
 <body>
+  <div id="score">得分: 0</div>
   <div id="game">
-    <div id="ball"></div>
-    <div id="score">得分: 0</div>
+    <div id="player"></div>
+    <div class="platform" style="left:0; bottom:0; width:600px;"></div>
+    <div class="platform" style="left:100px; bottom:100px; width:200px;"></div>
+    <div class="platform" style="left:350px; bottom:200px; width:150px;"></div>
+    <div class="coin" style="left:150px; bottom:130px;"></div>
+    <div class="coin" style="left:370px; bottom:230px;"></div>
   </div>
 
   <script>
-    const ball = document.getElementById('ball');
-    const scoreText = document.getElementById('score');
+    const player = document.getElementById('player');
     const game = document.getElementById('game');
+    const platforms = Array.from(document.getElementsByClassName('platform'));
+    const coins = Array.from(document.getElementsByClassName('coin'));
+    const scoreText = document.getElementById('score');
     let score = 0;
 
-    ball.addEventListener('click', () => {
-      // 随机移动小球位置
-      const maxX = game.clientWidth - ball.clientWidth;
-      const maxY = game.clientHeight - ball.clientHeight;
-      const randomX = Math.floor(Math.random() * maxX);
-      const randomY = Math.floor(Math.random() * maxY);
+    let playerPos = { x: 50, y: 0, vy: 0 };
+    const gravity = 0.8;
+    const jumpStrength = -12;
+    const moveSpeed = 5;
+    const keys = { left: false, right: false, up: false };
 
-      ball.style.left = randomX + "px";
-      ball.style.top = randomY + "px";
-
-      score++;
-      scoreText.textContent = "得分: " + score;
+    document.addEventListener('keydown', e => {
+      if(e.key === "ArrowLeft") keys.left = true;
+      if(e.key === "ArrowRight") keys.right = true;
+      if(e.key === "ArrowUp") keys.up = true;
     });
+    document.addEventListener('keyup', e => {
+      if(e.key === "ArrowLeft") keys.left = false;
+      if(e.key === "ArrowRight") keys.right = false;
+      if(e.key === "ArrowUp") keys.up = false;
+    });
+
+    function update() {
+      // 水平移动
+      if(keys.left) playerPos.x -= moveSpeed;
+      if(keys.right) playerPos.x += moveSpeed;
+
+      // 垂直移动（重力 + 跳跃）
+      playerPos.vy += gravity;
+      playerPos.y += playerPos.vy;
+
+      // 碰撞检测
+      platforms.forEach(p => {
+        const px = p.offsetLeft;
+        const py = game.clientHeight - p.offsetTop - p.offsetHeight;
+        const pw = p.offsetWidth;
+        const ph = p.offsetHeight;
+        if(playerPos.x + 40 > px && playerPos.x < px + pw &&
+           playerPos.y + 40 > py && playerPos.y + 40 < py + ph &&
+           playerPos.vy >= 0) {
+          playerPos.y = py - 40;
+          playerPos.vy = 0;
+          if(keys.up) playerPos.vy = jumpStrength;
+        }
+      });
+
+      // 边界
+      if(playerPos.x < 0) playerPos.x = 0;
+      if(playerPos.x > game.clientWidth - 40) playerPos.x = game.clientWidth - 40;
+      if(playerPos.y > game.clientHeight - 40) playerPos.y = game.clientHeight - 40;
+
+      // 检测金币
+      coins.forEach((c, idx) => {
+        const cx = c.offsetLeft;
+        const cy = game.clientHeight - c.offsetTop - 20;
+        if(playerPos.x + 40 > cx && playerPos.x < cx + 20 &&
+           playerPos.y + 40 > cy && playerPos.y < cy + 20) {
+          score++;
+          scoreText.textContent = "得分: " + score;
+          c.remove();
+          coins.splice(idx, 1);
+        }
+      });
+
+      player.style.left = playerPos.x + "px";
+      player.style.top = (game.clientHeight - playerPos.y - 40) + "px";
+
+      requestAnimationFrame(update);
+    }
+
+    playerPos.y = 0;
+    update();
   </script>
 </body>
 </html>
