@@ -2,12 +2,12 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8">
-  <title>超级玛丽小游戏</title>
+  <title>胡婷婷玛丽小游戏</title>
   <style>
     body {
       margin: 0;
-      background: #87CEEB;
       font-family: Arial, sans-serif;
+      background: #87CEEB;
     }
     #game {
       position: relative;
@@ -37,8 +37,8 @@
       border-radius: 50%;
     }
     #score {
-      margin: 10px auto;
       width: 600px;
+      margin: 10px auto;
       font-size: 20px;
     }
   </style>
@@ -47,9 +47,11 @@
   <div id="score">得分: 0</div>
   <div id="game">
     <div id="player"></div>
+    <!-- 平台 -->
     <div class="platform" style="left:0; bottom:0; width:600px;"></div>
     <div class="platform" style="left:100px; bottom:100px; width:200px;"></div>
     <div class="platform" style="left:350px; bottom:200px; width:150px;"></div>
+    <!-- 金币 -->
     <div class="coin" style="left:150px; bottom:130px;"></div>
     <div class="coin" style="left:370px; bottom:230px;"></div>
   </div>
@@ -62,12 +64,14 @@
     const scoreText = document.getElementById('score');
     let score = 0;
 
+    // 玩家属性
     let playerPos = { x: 50, y: 0, vy: 0 };
     const gravity = 0.8;
     const jumpStrength = -12;
     const moveSpeed = 5;
     const keys = { left: false, right: false, up: false };
 
+    // 控制键
     document.addEventListener('keydown', e => {
       if(e.key === "ArrowLeft") keys.left = true;
       if(e.key === "ArrowRight") keys.right = true;
@@ -91,13 +95,24 @@
       // 碰撞检测
       platforms.forEach(p => {
         const px = p.offsetLeft;
-        const py = game.clientHeight - p.offsetTop - p.offsetHeight;
+        const py = p.offsetTop;
         const pw = p.offsetWidth;
         const ph = p.offsetHeight;
-        if(playerPos.x + 40 > px && playerPos.x < px + pw &&
-           playerPos.y + 40 > py && playerPos.y + 40 < py + ph &&
+        // 小人矩形
+        const playerBottom = playerPos.y + 40;
+        const playerTop = playerPos.y;
+        const playerLeft = playerPos.x;
+        const playerRight = playerPos.x + 40;
+        // 平台矩形
+        const platTop = py;
+        const platBottom = py + ph;
+        const platLeft = px;
+        const platRight = px + pw;
+        // 碰撞判断：从上落到平台上
+        if(playerBottom > platTop && playerTop < platBottom &&
+           playerRight > platLeft && playerLeft < platRight &&
            playerPos.vy >= 0) {
-          playerPos.y = py - 40;
+          playerPos.y = platTop - 40;
           playerPos.vy = 0;
           if(keys.up) playerPos.vy = jumpStrength;
         }
@@ -111,7 +126,7 @@
       // 检测金币
       coins.forEach((c, idx) => {
         const cx = c.offsetLeft;
-        const cy = game.clientHeight - c.offsetTop - 20;
+        const cy = c.offsetTop;
         if(playerPos.x + 40 > cx && playerPos.x < cx + 20 &&
            playerPos.y + 40 > cy && playerPos.y < cy + 20) {
           score++;
@@ -122,7 +137,7 @@
       });
 
       player.style.left = playerPos.x + "px";
-      player.style.top = (game.clientHeight - playerPos.y - 40) + "px";
+      player.style.top = playerPos.y + "px";
 
       requestAnimationFrame(update);
     }
