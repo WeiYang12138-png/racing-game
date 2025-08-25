@@ -1,10 +1,82 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
   <meta charset="UTF-8">
-  <title>Test Page</title>
+  <title>点球大战小游戏</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: linear-gradient(to top, #4facfe, #00f2fe);
+      font-family: Arial, sans-serif;
+    }
+    #game {
+      position: relative;
+      width: 400px;
+      height: 600px;
+      background: #7cfc00;
+      border: 4px solid #333;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    #goal {
+      position: absolute;
+      top: 20px;
+      left: 100px;
+      width: 200px;
+      height: 40px;
+      background: #fff;
+      border: 4px solid #333;
+      border-radius: 5px;
+    }
+    #ball {
+      position: absolute;
+      bottom: 50px;
+      left: 180px;
+      width: 40px;
+      height: 40px;
+      background: radial-gradient(circle at 10px 10px, #fff, #ccc);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: top 0.8s ease, left 0.8s ease;
+    }
+    #score {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      font-size: 20px;
+      color: #000;
+    }
+  </style>
 </head>
 <body>
-  <h1>GitHub Pages Test</h1>
+  <div id="game">
+    <div id="goal"></div>
+    <div id="ball"></div>
+    <div id="score">得分: 0</div>
+  </div>
+
+  <script>
+    const ball = document.getElementById('ball');
+    const scoreText = document.getElementById('score');
+    let score = 0;
+
+    ball.addEventListener('click', () => {
+      // 随机射门位置
+      const randomLeft = 120 + Math.random() * 120;
+      ball.style.top = "40px";
+      ball.style.left = randomLeft + "px";
+
+      setTimeout(() => {
+        ball.style.top = "";
+        ball.style.left = "180px";
+        score++;
+        scoreText.textContent = "得分: " + score;
+      }, 800);
+    });
+  </script>
 </body>
 </html>
