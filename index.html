@@ -1,76 +1,361 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-  <meta charset="UTF-8">
-  <title>胡婷婷点击小游戏</title>
+  <meta charset="utf-8" />
+  <title>简化魂斗罗 - 横版射击</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-      background: #87CEEB;
-      font-family: Arial, sans-serif;
+    :root {
+      --bg:#0b1220;
+      --ground:#2b2b2b;
+      --player:#ff3b3b;
+      --enemy:#ffd166;
+      --bullet:#ffffff;
+      --hud:#e6eef8;
     }
+    html,body{height:100%;margin:0;background:var(--bg);font-family:Arial,Helvetica,sans-serif;color:var(--hud)}
+    #wrap{display:flex;justify-content:center;align-items:center;height:100%;}
     #game {
-      position: relative;
-      width: 400px;
-      height: 400px;
-      background: #90EE90;
-      border: 3px solid #333;
-      border-radius: 10px;
-      overflow: hidden;
+      position:relative;
+      width:900px;
+      height:420px;
+      background: linear-gradient(#1b2b42,#102030);
+      border:4px solid #111;
+      box-shadow:0 8px 40px rgba(0,0,0,0.7);
+      overflow:hidden;
     }
-    #ball {
-      position: absolute;
-      width: 40px;
-      height: 40px;
-      background: radial-gradient(circle at 10px 10px, #fff, #ccc);
-      border-radius: 50%;
-      cursor: pointer;
-      top: 180px;
-      left: 180px;
-      transition: top 0.5s ease, left 0.5s ease;
+
+    /* 地面 & 视差背景 */
+    .bg-layer{position:absolute;left:0;top:0;width:200%;height:100%;background-repeat:repeat-x;opacity:0.12}
+    .bg1{background-image:linear-gradient(transparent, rgba(255,255,255,0.02) 60%); transform:translateX(0);}
+    .ground {position:absolute;left:0;bottom:0;width:200%;height:80px;background:linear-gradient(#3a3a3a,#222);border-top:4px solid #111}
+
+    /* 玩家 */
+    #player {
+      position:absolute;width:36px;height:36px;border-radius:6px;background:var(--player);left:80px;bottom:100px;
+      display:flex;align-items:center;justify-content:center;box-shadow:0 2px 0 rgba(0,0,0,0.4);
     }
-    #score {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      font-size: 20px;
-      color: #000;
+    /* 简单玩家头盔/枪口用伪元素 */
+    #player:before{content:"";position:absolute;left:8px;top:4px;width:20px;height:8px;background:#7f1000;border-radius:3px}
+    #player:after{content:"";position:absolute;right:-8px;top:14px;width:14px;height:6px;background:#222;border-radius:2px}
+
+    /* 子弹 */
+    .bullet{position:absolute;width:8px;height:4px;border-radius:2px;background:var(--bullet)}
+
+    /* 敌人 */
+    .enemy{position:absolute;width:34px;height:34px;border-radius:4px;background:var(--enemy);box-shadow:inset 0 0 6px rgba(0,0,0,0.15)}
+    .enemy.small{width:26px;height:26px;border-radius:4px}
+
+    /* 爆炸（简单的缩放圆） */
+    .expl{position:absolute;border-radius:50%;pointer-events:none;background:radial-gradient(circle,#fff2,#ff8a00);opacity:0.95}
+
+    /* HUD */
+    #hud{position:absolute;left:8px;top:8px;font-size:16px}
+    #hud .stat{margin-bottom:6px}
+    #centerText{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;color:var(--hud);font-size:22px;display:none}
+    #centerText button{margin-top:10px;padding:8px 14px;border-radius:6px;border:none;background:#1b9cff;color:#fff;cursor:pointer}
+
+    /* 小提示 */
+    #hint{position:absolute;right:8px;top:8px;font-size:13px;opacity:0.9}
+    @media (max-width:980px){
+      #game{width:95%;height:60vh}
     }
   </style>
 </head>
 <body>
-  <div id="game">
-    <div id="ball"></div>
-    <div id="score">得分: 0</div>
+  <div id="wrap">
+    <div id="game" tabindex="0">
+      <div class="bg-layer bg1"></div>
+      <div class="ground"></div>
+
+      <div id="player" aria-label="玩家"></div>
+
+      <!-- 动态对象将由 JS 插入：子弹 .bullet、敌人 .enemy、爆炸 .expl -->
+
+      <div id="hud">
+        <div class="stat">得分: <span id="score">0</span></div>
+        <div class="stat">生命: <span id="lives">3</span></div>
+        <div class="stat">关卡: <span id="level">1</span></div>
+      </div>
+
+      <div id="hint">← → 移动 • ↑/空格 跳 • Z/K 射击</div>
+
+      <div id="centerText">
+        <div id="centerTitle">简化 魂斗罗</div>
+        <div style="margin-top:8px;color:#cfe9ff;font-size:14px">按开始后敌人会不断出现，生存并射击得分</div>
+        <button id="startBtn">开始游戏</button>
+      </div>
+    </div>
   </div>
 
   <script>
-    const ball = document.getElementById('ball');
-    const scoreText = document.getElementById('score');
-    const game = document.getElementById('game');
-    let score = 0;
+    (function(){
+      const G = document.getElementById('game');
+      const playerEl = document.getElementById('player');
+      const scoreEl = document.getElementById('score');
+      const livesEl = document.getElementById('lives');
+      const levelEl = document.getElementById('level');
+      const centerText = document.getElementById('centerText');
+      const startBtn = document.getElementById('startBtn');
+      const groundY = G.clientHeight - 80; // ground top y in container coords
+      // 可配置参数
+      const config = {
+        grav:0.7,
+        jump:-12,
+        moveSpeed:4.2,
+        bulletSpeed:10,
+        enemySpeedBase:1.6,
+        spawnInterval:1400, // ms
+      };
 
-    ball.addEventListener('click', () => {
-      // 随机移动小球位置
-      const maxX = game.clientWidth - ball.clientWidth;
-      const maxY = game.clientHeight - ball.clientHeight;
-      const randomX = Math.floor(Math.random() * maxX);
-      const randomY = Math.floor(Math.random() * maxY);
+      // 状态
+      let score = 0, lives = 3, level = 1;
+      let keys = {left:false,right:false,up:false,shoot:false};
+      let player = {x:80,y:groundY - 36,vy:0,width:36,height:36,canJump:true, facing:1};
+      let bullets = [], enemies = [], expls = [];
+      let lastSpawn = 0, running=false, lastTime=0, spawnInterval=config.spawnInterval;
+      let bgOffset = 0;
 
-      ball.style.left = randomX + "px";
-      ball.style.top = randomY + "px";
+      // 帧率安全化
+      function now(){ return performance.now(); }
 
-      score++;
-      scoreText.textContent = "得分: " + score;
-    });
+      // 工具：创建元素
+      function createEl(tag,cls,styles){
+        const e = document.createElement('div'); if(cls) e.className = cls;
+        if(styles) Object.assign(e.style,styles);
+        G.appendChild(e); return e;
+      }
+
+      // 初始化显示
+      function updateHUD(){ scoreEl.textContent = score; livesEl.textContent = lives; levelEl.textContent = level; }
+      function resetState(){
+        score = 0; lives = 3; level = 1; spawnInterval = config.spawnInterval;
+        bullets.forEach(b=>b.el.remove()); enemies.forEach(e=>e.el.remove()); expls.forEach(x=>x.el.remove());
+        bullets = []; enemies = []; expls = [];
+        player.x = 80; player.y = groundY - player.height; player.vy = 0; player.canJump = true;
+        updateHUD();
+      }
+
+      // 生成敌人
+      function spawnEnemy(){
+        const side = Math.random() < 0.6 ? 'right' : 'left';
+        const isFlying = Math.random() < 0.28;
+        const w = isFlying ? 28 : 34;
+        const h = isFlying ? 28 : 34;
+        const x = side === 'right' ? G.clientWidth + 40 : -60;
+        const y = isFlying ? (100 + Math.random()*150) : (groundY - h);
+        const speed = (side==='right' ? -1 : 1) * (config.enemySpeedBase + Math.random()*0.8 + (level-1)*0.2);
+        const el = createEl('div','enemy'+(isFlying? ' small':''),{left:x+'px',top:y+'px',width:w+'px',height:h+'px'});
+        const enemy = {x,y,w,h,vx:speed,el, hp: isFlying?1:2, isFlying};
+        enemies.push(enemy);
+      }
+
+      // 射击
+      function shoot(){
+        // 限制射速：简单冷却
+        const t = now();
+        if(!player.shootCooldown || t - player.shootCooldown > 180){
+          player.shootCooldown = t;
+          const bx = player.x + (player.facing > 0 ? player.width : -8) + 6;
+          const by = player.y + 14;
+          const vx = player.facing * config.bulletSpeed;
+          const el = createEl('div','bullet',{left:bx+'px',top:by+'px',width:'8px',height:'4px'});
+          bullets.push({x:bx,y:by,vx,el,w:8,h:4});
+        }
+      }
+
+      // 碰撞检测（矩形）
+      function rectColl(a,b){
+        return !(a.x + a.width < b.x || a.x > b.x + b.w || a.y + a.height < b.y || a.y > b.y + b.h);
+      }
+
+      // 玩家受击处理
+      function playerHit(){
+        lives--;
+        updateHUD();
+        // 短暂无敌（隐式实现：重置坐标）
+        player.x = 50; player.y = groundY - player.height; player.vy = 0;
+        if(lives <= 0){
+          gameOver();
+        }
+      }
+
+      // 爆炸效果
+      function spawnExpl(x,y){
+        const el = createEl('div','expl',{left:(x-16)+'px',top:(y-16)+'px',width:'32px',height:'32px',transform:'scale(0)',opacity:'0.95'});
+        expls.push({x,y,el,life:300,created:now()});
+      }
+
+      // 游戏结束
+      function gameOver(){
+        running = false;
+        centerText.style.display = 'block';
+        document.getElementById('centerTitle').textContent = '游戏结束';
+        startBtn.textContent = '重新开始';
+      }
+
+      // 主循环
+      function loop(t){
+        const dt = Math.min(40, t - lastTime); lastTime = t;
+        if(running){
+          // 背景视差
+          bgOffset -= (keys.right?1.2: keys.left?-1.2: 0) * (dt/16);
+          G.querySelector('.bg1').style.transform = `translateX(${bgOffset}px)`;
+
+          // 玩家控制
+          if(keys.left) { player.x -= config.moveSpeed; player.facing = -1; }
+          if(keys.right){ player.x += config.moveSpeed; player.facing = 1; }
+          // 重力和跳跃
+          player.vy += config.grav;
+          player.y += player.vy;
+          // 地面碰撞
+          if(player.y >= groundY - player.height){
+            player.y = groundY - player.height; player.vy = 0; player.canJump = true;
+          }
+
+          // 边界限制
+          if(player.x < 0) player.x = 0;
+          if(player.x > G.clientWidth - player.width) player.x = G.clientWidth - player.width;
+
+          // 更新子弹
+          for(let i=bullets.length-1;i>=0;i--){
+            const b = bullets[i];
+            b.x += b.vx;
+            // 移出视野
+            if(b.x < -40 || b.x > G.clientWidth + 40){
+              b.el.remove(); bullets.splice(i,1); continue;
+            }
+            b.el.style.left = b.x + 'px'; b.el.style.top = b.y + 'px';
+            // 碰撞敌人
+            for(let j=enemies.length-1;j>=0;j--){
+              const e = enemies[j];
+              if(b.x + b.w > e.x && b.x < e.x + e.w && b.y + b.h > e.y && b.y < e.y + e.h){
+                // 击中
+                e.hp--; b.el.remove(); bullets.splice(i,1);
+                if(e.hp <= 0){
+                  // 爆炸&移除
+                  spawnExpl(e.x + e.w/2, e.y + e.h/2);
+                  e.el.remove(); enemies.splice(j,1);
+                  score += 10;
+                  updateHUD();
+                }
+                break;
+              }
+            }
+          }
+
+          // 更新敌人
+          for(let i=enemies.length-1;i>=0;i--){
+            const e = enemies[i];
+            e.x += e.vx;
+            // 碰到玩家
+            if(e.x < player.x + player.width && e.x + e.w > player.x && e.y < player.y + player.height && e.y + e.h > player.y){
+              // 敌人击中玩家
+              e.el.remove(); enemies.splice(i,1);
+              spawnExpl(player.x + player.width/2, player.y + player.height/2);
+              playerHit();
+              continue;
+            }
+            // 移出视野则移除
+            if(e.x < -120 || e.x > G.clientWidth + 120){
+              e.el.remove(); enemies.splice(i,1); continue;
+            }
+            e.el.style.left = e.x + 'px'; e.el.style.top = e.y + 'px';
+          }
+
+          // 更新爆炸动画
+          const nowt = now();
+          for(let i=expls.length-1;i>=0;i--){
+            const ex = expls[i];
+            const life = nowt - ex.created;
+            const s = Math.min(1, life/220);
+            ex.el.style.transform = `scale(${0.6 + s})`;
+            ex.el.style.opacity = `${1 - s}`;
+            if(life > 350){ ex.el.remove(); expls.splice(i,1); }
+          }
+
+          // 自动生成敌人（根据 spawnInterval）
+          if(t - lastSpawn > spawnInterval){
+            spawnEnemy();
+            lastSpawn = t;
+            // 随着分数增加逐渐加速生成
+            if(score > 80) spawnInterval = Math.max(600, config.spawnInterval - level*80);
+            if(score > level*80) { level++; updateHUD(); }
+          }
+
+          // 将玩家 DOM 更新
+          playerEl.style.left = player.x + 'px';
+          playerEl.style.top = player.y + 'px';
+        }
+
+        requestAnimationFrame(loop);
+      }
+
+      // 键盘事件
+      window.addEventListener('keydown', e=>{
+        if(e.key === 'ArrowLeft') keys.left = true;
+        if(e.key === 'ArrowRight') keys.right = true;
+        if(e.key === 'ArrowUp' || e.key === ' ') { if(player.canJump){ player.vy = config.jump; player.canJump = false; } }
+        if(e.key === 'z' || e.key === 'Z' || e.key === 'k' || e.key === 'K'){ shoot(); }
+        // 屏蔽默认滚动
+        if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+      });
+      window.addEventListener('keyup', e=>{
+        if(e.key === 'ArrowLeft') keys.left = false;
+        if(e.key === 'ArrowRight') keys.right = false;
+      });
+
+      // 鼠标/按钮开始
+      startBtn.addEventListener('click', ()=>{
+        centerText.style.display = 'none';
+        resetState();
+        running = true;
+        lastTime = now();
+        lastSpawn = lastTime + 300;
+      });
+
+      // 点击发射（也支持屏幕点击）
+      G.addEventListener('click', (e)=>{
+        // 如果点击在中间开始按钮被隐藏后，触发射击而非 UI
+        if(running) shoot();
+      });
+
+      // 初始显示开始界面
+      centerText.style.display = 'block';
+      document.getElementById('centerTitle').textContent = '简化 魂斗罗';
+      // 启动循环
+      requestAnimationFrame(loop);
+
+      // 触摸支持（左右虚拟按键简单实现）
+      let touchStartX = null;
+      G.addEventListener('touchstart', e=>{
+        const t = e.touches[0];
+        touchStartX = t.clientX;
+        // 触摸右侧视为射击
+        if(t.clientX > G.getBoundingClientRect().left + G.clientWidth*0.6) shoot();
+      });
+      G.addEventListener('touchmove', e=>{
+        if(!touchStartX) return;
+        const t = e.touches[0];
+        const dx = t.clientX - touchStartX;
+        if(dx > 10) { keys.right = true; keys.left = false; }
+        else if(dx < -10) { keys.left = true; keys.right = false; }
+      });
+      G.addEventListener('touchend', e=>{
+        keys.left = keys.right = false;
+        touchStartX = null;
+      });
+
+      // 窗口调整时更新 groundY 与元素位置
+      window.addEventListener('resize', ()=>{
+        // 重新计算 groundY 并将 player 保持在底部
+        const newGround = G.clientHeight - 80;
+        player.y = Math.min(player.y, newGround - player.height);
+      });
+
+      // 初始 HUD渲染
+      updateHUD();
+    })();
   </script>
 </body>
 </html>
-
-
-
-
